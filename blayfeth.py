@@ -5,6 +5,7 @@ import uuid
 import json
 import time
 import os # os modülünü import ediyoruz
+import socket # socket modülünü import ediyoruz (hostname ve IP için)
 
 app = Flask(__name__)
 # Güvenli bir anahtar kullanın. Üretim ortamında daha karmaşık bir anahtar olmalı.
@@ -22,7 +23,7 @@ class CountryConquestGame:
         self.game_phase = 'selection'
         self.current_player_index = 0
         # Her oyuncunun başlangıçta seçeceği ülke sayısı
-        self.selection_count_per_player = 2
+        self.selection_count_per_player = 2 # Sizin belirttiğiniz 2 ülke seçme sınırı
         # Savaş durumu bilgileri
         self.war_state = {
             'attacker_id': None,
@@ -76,7 +77,6 @@ class CountryConquestGame:
             {'id': 'moldova', 'name': 'Moldova', 'neighbors': ['romania', 'ukraine'], 'path': 'M370 110 L380 105 L385 120 L375 125 Z'},
         ]
         return [{'id': c['id'], 'name': c['name'], 'owner_id': None, 'neighbors': c['neighbors'], 'path': c['path']} for c in countries_data]
-
 
     def add_player(self, player_id, player_name=None):
         # Oyuncunun zaten oyunda olup olmadığını kontrol et
@@ -344,6 +344,8 @@ def handle_connect():
 def handle_disconnect():
     player_id = request.sid
     # Oyuncu bağlantısı kesildiğinde yapılacak işlemler (örn. oyuncuyu oyundan çıkarma)
+    # Burada oyuncunun ülkelerini sahipsiz bırakma veya başka bir oyuncuya devretme mantığı eklenebilir.
+    # Şimdilik sadece konsola mesaj yazıyoruz.
     print(f"Oyuncu {player_id} bağlantısı kesildi.")
 
 @socketio.on('select_country')
@@ -387,8 +389,24 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    print(f"Oyun sunucusu başlatılıyor. Oyun ID: {game.game_id}")
-    print("Tarayıcınızda http://127.0.0.1:5000 adresine gidin.")
-    # Debug modunda çalıştırmak, kod değişikliklerinde otomatik yeniden yükleme sağlar
-    socketio.run(app, debug=True, port=5000)
+    # Render'dan PORT ortam değişkenini al, yoksa varsayılan olarak 5000 kullan
+    # Bu, uygulamanın hem yerel ortamda hem de Render'da çalışmasını sağlar.
+    port = int(os.environ.get('PORT', 5000)) 
+    host = '0.0.0.0' # Herhangi bir IP adresinden gelen bağlantıları kabul et
 
+    # Kendi yerel IP adresini bulmak için (sadece bilgilendirme amaçlı)
+    hostname = socket.gethostname()
+    local_ip = "127.0.0.1" # Varsayılan olarak localhost
+    try:
+        local_ip = socket.gethostbyname(hostname)
+    except socket.gaierror:
+        # Hostname çözülemezse localhost kullanmaya devam et
+        pass
+    
+    print(f"Oyun sunucusu başlatılıyor. Oyun ID: {game.game_id}")
+    print(f"Siz kendi bilgisayarınızda http://127.0.0.1:{port} adresine gidin.")
+    print(f"Arkadaşlarınız aynı ağdaysa, {local_ip}:{port} adresine gidebilirler.")
+    print("DİKKAT: Bu sadece yerel ağınızda çalışır. İnternet üzerinden erişim için sunucuya yükleme (deploy) yapmanız gerekir.")
+    
+    # Uygulamayı başlat
+    socketio.run(app, debug=True, host=host, port=port)
