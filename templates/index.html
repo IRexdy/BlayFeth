@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ülke Fetih Oyunu - Avrupa</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* SVG ülkeleri için varsayılan renkler */
+        .fill-gray-700 { fill: #374151; } /* Sahipsiz */
+        .fill-blue-500 { fill: #3B82F6; }
+        .fill-red-500 { fill: #EF4444; }
+        .fill-green-500 { fill: #22C55E; }
+        .fill-purple-500 { fill: #A855F7; }
+        .fill-yellow-500 { fill: #F59E0B; }
+        .fill-indigo-500 { fill: #6366F1; }
+        .fill-pink-500 { fill: #EC4899; }
+        .fill-teal-500 { fill: #14B8A6; }
+        .stroke-gray-800 { stroke: #1F2937; }
+        .stroke-yellow-400 { stroke: #FACC15; }
+        .stroke-red-400 { stroke: #F87171; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-inter flex flex-col items-center justify-center min-h-screen p-4">
+    <div id="root" class="container max-w-4xl mx-auto bg-gray-800 rounded-lg shadow-lg p-6">
+        <!-- Oyun içeriği burada JavaScript tarafından render edilecek -->
+        <div class="text-center text-xl">Oyun sunucusuna bağlanılıyor...</div>
+    </div>
+
+    <!-- Socket.IO İstemci Kütüphanesi -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+
+    <script>
+        // Socket.IO bağlantısı
+        const socket = io();
+
+        let game = null;
+        let userId = null; // Bu, Socket.IO session ID'si olacak
+
+        const playerColors = [
+            'bg-blue-500', 'bg-red-500', 'bg-green-500', 'bg-purple-500',
+            'bg-yellow-500', 'bg-indigo-500', 'bg-pink-500', 'bg-teal-500'
+        ];
+
+        // DÜZELTME: Avrupa ülkeleri için daha gerçekçi isimler ve basitleştirilmiş SVG yolları
+        // ve komşuluk ilişkileri eklendi.
+        const initialCountries = [
+            {'id': 'france', 'name': 'Fransa', 'neighbors': ['germany', 'italy', 'spain', 'belgium', 'switzerland'], 'path': 'M150 100 L180 80 L220 90 L200 130 L160 140 Z'},
+            {'id': 'germany', 'name': 'Almanya', 'neighbors': ['france', 'poland', 'czech_republic', 'austria', 'netherlands', 'belgium', 'switzerland'], 'path': 'M220 70 L280 60 L300 90 L250 120 L200 100 Z'},
+            {'id': 'italy', 'name': 'İtalya', 'neighbors': ['france', 'switzerland', 'austria'], 'path': 'M200 150 L220 130 L230 180 L210 200 L190 170 Z'},
+            {'id': 'spain', 'name': 'İspanya', 'neighbors': ['france', 'portugal'], 'path': 'M100 160 L140 140 L160 180 L120 200 L90 180 Z'},
+            {'id': 'united_kingdom', 'name': 'Birleşik Krallık', 'neighbors': ['france'], 'path': 'M50 50 L80 40 L90 70 L60 80 Z'},
+            {'id': 'poland', 'name': 'Polonya', 'neighbors': ['germany', 'czech_republic', 'ukraine', 'belorussia', 'lithuania', 'russia'], 'path': 'M300 60 L350 50 L370 80 L320 110 L280 90 Z'},
+            {'id': 'ukraine', 'name': 'Ukrayna', 'neighbors': ['poland', 'belorussia', 'russia', 'romania', 'moldova'], 'path': 'M380 70 L450 60 L480 120 L400 150 Z'},
+            {'id': 'russia', 'name': 'Rusya', 'neighbors': ['ukraine', 'belorussia', 'finland', 'norway', 'poland', 'latvia', 'lithuania', 'estonia'], 'path': 'M460 20 L550 10 L580 100 L500 150 Z'},
+            {'id': 'sweden', 'name': 'İsveç', 'neighbors': ['norway', 'finland'], 'path': 'M280 10 L320 0 L350 40 L300 50 Z'},
+            {'id': 'norway', 'name': 'Norveç', 'neighbors': ['sweden', 'finland'], 'path': 'M250 0 L280 10 L260 40 L230 30 Z'},
+            {'id': 'finland', 'name': 'Finlandiya', 'neighbors': ['sweden', 'norway', 'russia'], 'path': 'M330 0 L380 10 L370 40 L320 50 Z'},
+            {'id': 'belgium', 'name': 'Belçika', 'neighbors': ['france', 'germany', 'netherlands'], 'path': 'M185 85 L200 80 L205 95 L190 100 Z'},
+            {'id': 'netherlands', 'name': 'Hollanda', 'neighbors': ['belgium', 'germany'], 'path': 'M190 70 L210 65 L215 80 L195 85 Z'},
+            {'id': 'switzerland', 'name': 'İsviçre', 'neighbors': ['france', 'germany', 'italy', 'austria'], 'path': 'M200 125 L215 120 L220 135 L205 140 Z'},
+            {'id': 'austria', 'name': 'Avusturya', 'neighbors': ['germany', 'italy', 'switzerland', 'czech_republic', 'hungary', 'slovakia'], 'path': 'M230 130 L260 120 L270 140 L240 150 Z'},
+            {'id': 'czech_republic', 'name': 'Çek Cumhuriyeti', 'neighbors': ['germany', 'poland', 'slovakia', 'austria'], 'path': 'M260 100 L290 90 L300 110 L270 120 Z'},
+            {'id': 'slovakia', 'name': 'Slovakya', 'neighbors': ['czech_republic', 'poland', 'hungary', 'austria', 'ukraine'], 'path': 'M290 110 L320 100 L330 120 L300 130 Z'},
+            {'id': 'hungary', 'name': 'Macaristan', 'neighbors': ['austria', 'slovakia', 'romania', 'croatia', 'serbia'], 'path': 'M270 140 L300 130 L310 150 L280 160 Z'},
+            {'id': 'romania', 'name': 'Romanya', 'neighbors': ['ukraine', 'hungary', 'bulgaria', 'moldova', 'serbia'], 'path': 'M320 120 L370 110 L380 140 L330 150 Z'},
+            {'id': 'bulgaria', 'name': 'Bulgaristan', 'neighbors': ['romania', 'serbia', 'greece', 'turkey'], 'path': 'M330 150 L360 140 L370 160 L340 170 Z'},
+            {'id': 'greece', 'name': 'Yunanistan', 'neighbors': ['bulgaria', 'turkey', 'albania', 'macedonia'], 'path': 'M320 170 L340 160 L350 190 L330 200 Z'},
+            {'id': 'turkey', 'name': 'Türkiye', 'neighbors': ['bulgaria', 'greece', 'syria', 'iraq', 'iran', 'georgia', 'armenia'], 'path': 'M380 150 L450 140 L480 200 L400 210 Z'},
+            {'id': 'belorussia', 'name': 'Belarus', 'neighbors': ['poland', 'ukraine', 'russia', 'lithuania', 'latvia'], 'path': 'M350 50 L380 60 L390 90 L360 100 Z'},
+            {'id': 'lithuania', 'name': 'Litvanya', 'neighbors': ['poland', 'belorussia', 'latvia', 'russia'], 'path': 'M320 40 L340 30 L350 50 L330 60 Z'},
+            {'id': 'latvia', 'name': 'Letonya', 'neighbors': ['lithuania', 'estonia', 'russia', 'belorussia'], 'path': 'M310 20 L330 10 L340 30 L320 40 Z'},
+            {'id': 'estonia', 'name': 'Estonya', 'neighbors': ['finland', 'latvia', 'russia'], 'path': 'M300 0 L320 0 L330 20 L310 20 Z'},
+            {'id': 'portugal', 'name': 'Portekiz', 'neighbors': ['spain'], 'path': 'M70 170 L90 160 L100 180 L80 190 Z'},
+            {'id': 'ireland', 'name': 'İrlanda', 'neighbors': ['united_kingdom'], 'path': 'M30 60 L45 55 L50 70 L35 75 Z'},
+            {'id': 'albania', 'name': 'Arnavutluk', 'neighbors': ['greece', 'macedonia', 'montenegro', 'kosovo'], 'path': 'M290 170 L300 165 L305 180 L295 185 Z'},
+            {'id': 'macedonia', 'name': 'Kuzey Makedonya', 'neighbors': ['greece', 'bulgaria', 'serbia', 'albania', 'kosovo'], 'path': 'M305 160 L315 155 L320 170 L310 175 Z'},
+            {'id': 'croatia', 'name': 'Hırvatistan', 'neighbors': ['bosnia_herzegovina', 'serbia', 'hungary', 'slovenia'], 'path': 'M240 150 L260 140 L270 160 L250 170 Z'},
+            {'id': 'bosnia_herzegovina', 'name': 'Bosna-Hersek', 'neighbors': ['croatia', 'serbia', 'montenegro'], 'path': 'M250 170 L265 165 L270 180 L255 185 Z'},
+            {'id': 'serbia', 'name': 'Sırbistan', 'neighbors': ['hungary', 'romania', 'bulgaria', 'macedonia', 'kosovo', 'montenegro', 'bosnia_herzegovina', 'croatia'], 'path': 'M280 160 L300 150 L310 170 L290 180 Z'},
+            {'id': 'moldova', 'name': 'Moldova', 'neighbors': ['romania', 'ukraine'], 'path': 'M370 110 L380 105 L385 120 L375 125 Z'},
+        ];
+
+        // Modalı gösterme/gizleme fonksiyonları
+        function showMessageModal(content) {
+            const modal = document.getElementById('messageModal');
+            document.getElementById('modalContent').innerText = content;
+            modal.classList.remove('hidden');
+        }
+
+        function hideMessageModal() {
+            const modal = document.getElementById('messageModal');
+            modal.classList.add('hidden');
+        }
+
+        // Socket.IO olay dinleyicileri
+        socket.on('connect', () => {
+            console.log('Sunucuya bağlandı. SID:', socket.id);
+            userId = socket.id; // Socket ID'sini kullanıcı ID'si olarak kullan
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Sunucu bağlantısı kesildi.');
+            document.getElementById('root').innerHTML = '<div class="text-center text-xl text-red-500">Sunucu bağlantısı kesildi. Lütfen sayfayı yenileyin.</div>';
+        });
+
+        socket.on('game_state_update', (newGame) => {
+            game = newGame;
+            console.log('Oyun durumu güncellendi:', game);
+            renderGame(); // Oyun durumunu DOM'a yansıt
+            
+            // Mesajları göster
+            if (game.messages && game.messages.length > 0) {
+                game.messages.forEach(msg => showMessageModal(msg));
+            }
+        });
+
+        // Ülke tıklama olayları
+        function handleCountryClick(countryId) {
+            if (!game || !userId) return;
+
+            const currentPlayer = game.players[game.current_player_index];
+            const isMyTurn = currentPlayer && currentPlayer.id === userId;
+
+            if (!isMyTurn) {
+                showMessageModal("Sıra sizde değil!");
+                return;
+            }
+
+            const clickedCountry = game.countries.find(c => c.id === countryId);
+            if (!clickedCountry) return;
+
+            if (game.game_phase === 'selection') {
+                socket.emit('select_country', { countryId: countryId });
+            } else if (game.game_phase === 'playing') {
+                if (clickedCountry.owner_id === userId) {
+                    showMessageModal("Kendi ülkenize savaş açamazsınız.");
+                    return;
+                }
+                if (!clickedCountry.owner_id) {
+                    showMessageModal("Sahipsiz ülkelere savaş açamazsınız. Sadece komşu düşman ülkelere savaş açabilirsiniz.");
+                    return;
+                }
+
+                const playerOwnedCountries = game.countries.filter(c => c.owner_id === userId);
+                const isNeighbor = playerOwnedCountries.some(myCountry =>
+                    myCountry.neighbors.includes(countryId)
+                );
+
+                if (!isNeighbor) {
+                    showMessageModal("Sadece sınır komşusu olan ülkelere savaş açabilirsiniz.");
+                    return;
+                }
+                socket.emit('initiate_war', { targetCountryId: countryId });
+            }
+        }
+
+        // Taş-Kağıt-Makas seçimi
+        function handleRPSChoice(choice) {
+            if (!game || !userId) return;
+            socket.emit('make_rps_move', { choice: choice });
+        }
+
+        // Oyuncu rengini alma
+        function getPlayerColorClass(playerId) {
+            const playerIndex = game.players.findIndex(p => p.id === playerId);
+            return playerColors[playerIndex % playerColors.length];
+        }
+
+        // Ülke dolgu rengini alma
+        function getCountryFillColor(country) {
+            if (country.owner_id) {
+                return getPlayerColorClass(country.owner_id).replace('bg-', 'fill-');
+            }
+            return 'fill-gray-700'; // Sahipsiz ülkeler
+        }
+
+        // Ülke kenarlık rengini alma
+        function getCountryStrokeColor(country) {
+            if (game.war_state.target_country_id === country.id) {
+                return 'stroke-yellow-400'; // Savaş hedefi
+            }
+            const currentPlayer = game.players[game.current_player_index];
+            const isMyTurn = currentPlayer && currentPlayer.id === userId;
+            if (game.game_phase === 'playing' && isMyTurn) {
+                const myOwnedCountries = game.countries.filter(c => c.owner_id === userId);
+                const isNeighborOfMyCountry = myOwnedCountries.some(myCountry => myCountry.neighbors.includes(country.id));
+                if (isNeighborOfMyCountry && country.owner_id && country.owner_id !== userId) {
+                    return 'stroke-red-400'; // Saldırılabilir düşman komşu
+                }
+            }
+            return 'stroke-gray-800';
+        }
+
+        // Oyun durumunu DOM'a render et
+        function renderGame() {
+            if (!game) {
+                document.getElementById('root').innerHTML = '<div class="text-center text-xl">Oyun yükleniyor...</div>';
+                return;
+            }
+
+            const currentPlayer = game.players[game.current_player_index];
+            const isMyTurn = currentPlayer && currentPlayer.id === userId;
+            // const myPlayerInfo = game.players.find(p => p.id === userId); // Şu an kullanılmıyor ama bilgi amaçlı kalabilir
+
+            const currentWar = game.war_state.attacker_id && game.war_state.defender_id && game.war_state.target_country_id;
+            const isParticipantInWar = currentWar && (userId === game.war_state.attacker_id || userId === game.war_state.defender_id);
+            const attackerName = currentWar ? game.players.find(p => p.id === game.war_state.attacker_id)?.name : '';
+            const defenderName = currentWar ? game.players.find(p => p.id === game.war_state.defender_id)?.name : '';
+            const targetCountryName = currentWar ? game.countries.find(c => c.id === game.war_state.target_country_id)?.name : '';
+
+            let playerListHtml = game.players.map(player => `
+                <div class="p-4 rounded-lg shadow-md ${getPlayerColorClass(player.id)}">
+                    <p class="font-bold text-lg">${player.name} ${player.id === userId ? '(Siz)' : ''}</p>
+                    <p class="text-sm">Ülke Sayısı: ${player.country_ids.length}</p>
+                    <p class="text-xs break-all">ID: ${player.id}</p>
+                </div>
+            `).join('');
+
+            let mapHtml = game.countries.map(country => `
+                <path
+                    d="${country.path}"
+                    class="${getCountryFillColor(country)} ${getCountryStrokeColor(country)} stroke-2 cursor-pointer transition-all duration-200 ease-in-out hover:opacity-80"
+                    onclick="handleCountryClick('${country.id}')"
+                >
+                    <title>${country.name} ${country.owner_id ? `(${game.players.find(p => p.id === country.owner_id)?.name})` : '(Sahipsiz)'}</title>
+                </path>
+            `).join('');
+
+            let warSectionHtml = '';
+            if (currentWar) {
+                warSectionHtml = `
+                    <div class="text-center">
+                        <p class="text-lg font-bold mb-2">
+                            <span class="${getPlayerColorClass(game.war_state.attacker_id)} px-2 py-1 rounded-md">${attackerName}</span>
+                            <span class="mx-2">vs</span>
+                            <span class="${getPlayerColorClass(game.war_state.defender_id)} px-2 py-1 rounded-md">${defenderName}</span>
+                        </p>
+                        <p class="text-md mb-3">Hedef Ülke: <span class="font-semibold text-yellow-200">${targetCountryName}</span></p>
+                        <p class="text-xl font-bold mb-4">Skor: ${game.war_state.attacker_score} - ${game.war_state.defender_score}</p>
+
+                        ${isParticipantInWar ? `
+                            <p class="mb-3">Seçiminizi yapın:</p>
+                            <div class="flex justify-center gap-4">
+                                <button
+                                    onclick="handleRPSChoice('rock')"
+                                    ${game.war_state.rps_choices[userId] ? 'disabled' : ''}
+                                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                                >
+                                    Taş
+                                </button>
+                                <button
+                                    onclick="handleRPSChoice('paper')"
+                                    ${game.war_state.rps_choices[userId] ? 'disabled' : ''}
+                                    class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                                >
+                                    Kağıt
+                                </button>
+                                <button
+                                    onclick="handleRPSChoice('scissors')"
+                                    ${game.war_state.rps_choices[userId] ? 'disabled' : ''}
+                                    class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                                >
+                                    Makas
+                                </button>
+                            </div>
+                            ${game.war_state.rps_choices[userId] ? `<p class="mt-3 text-yellow-200">Seçiminiz: ${game.war_state.rps_choices[userId]}. Rakip bekleniyor...</p>` : ''}
+                        ` : `
+                            <p class="text-lg text-gray-300">Savaş devam ediyor. Sonucu bekleyin.</p>
+                        `}
+                    </div>
+                `;
+            } else {
+                warSectionHtml = `
+                    <p class="text-lg text-gray-300 text-center">Şu anda bir savaş yok.</p>
+                `;
+            }
+
+            // Tüm HTML içeriğini root elementine yerleştir
+            document.getElementById('root').innerHTML = `
+                <h1 class="text-4xl font-bold text-center mb-6 text-yellow-400">Ülke Fetih Oyunu</h1>
+
+                <div class="mb-4 text-center text-lg">
+                    <p class="font-semibold">Oyun Durumu: <span class="text-blue-300">
+                        ${game.game_phase === 'selection' ? 'Ülke Seçimi' : ''}
+                        ${game.game_phase === 'playing' ? 'Oyun Devam Ediyor' : ''}
+                        ${game.game_phase === 'game_over' ? 'Oyun Bitti' : ''}
+                    </span></p>
+                    <p class="font-semibold">Sıra: <span class="${getPlayerColorClass(currentPlayer.id)} px-2 py-1 rounded-md">
+                        ${currentPlayer.name} (${currentPlayer.id === userId ? 'Siz' : 'Diğer Oyuncu'})
+                    </span></p>
+                    <p class="text-sm text-gray-400">Kullanıcı Kimliğiniz: <span class="font-mono text-xs">${userId}</span></p>
+                </div>
+
+                <!-- Oyuncu Listesi -->
+                <div class="mb-6">
+                    <h2 class="text-2xl font-semibold mb-3 text-yellow-300">Oyuncular</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        ${playerListHtml}
+                    </div>
+                </div>
+
+                <!-- Oyun Alanı -->
+                <div class="flex flex-col md:flex-row gap-6">
+                    <!-- Harita Bölümü -->
+                    <div class="md:w-2/3 bg-gray-700 rounded-lg p-4 flex flex-col items-center justify-center">
+                        <h2 class="text-2xl font-semibold mb-3 text-yellow-300">Avrupa Haritası</h2>
+                        <svg viewBox="0 0 600 220" class="w-full h-auto border-2 border-gray-600 rounded-lg">
+                            ${mapHtml}
+                        </svg>
+                        <p class="text-sm text-gray-400 mt-2">Ülke seçmek veya savaş açmak için haritadaki ülkelere tıklayın.</p>
+                    </div>
+
+                    <!-- Savaş/Taş-Kağıt-Makas Bölümü -->
+                    <div class="md:w-1/3 bg-gray-700 rounded-lg p-4">
+                        <h2 class="text-2xl font-semibold mb-3 text-yellow-300">Savaş Durumu</h2>
+                        ${warSectionHtml}
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+
+    <!-- Mesaj Modalı (alert() yerine kullanılır) -->
+    <div id="messageModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
+            <h3 class="text-xl font-bold mb-4 text-yellow-400">Bilgi</h3>
+            <p id="modalContent" class="text-gray-200 mb-6"></p>
+            <button
+                onclick="hideMessageModal()"
+                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-bold transition-colors duration-200"
+            >
+                Tamam
+            </button>
+        </div>
+    </div>
+</body>
+</html>
