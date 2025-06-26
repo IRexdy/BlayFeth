@@ -30,50 +30,53 @@ class CountryConquestGame:
         self.messages = []
         self.game_id = str(uuid.uuid4())
         self.last_update_time = time.time()
-        self.ai_player_id = None # AI olmayacağı için bu her zaman None kalacak
+        self.ai_player_id = None
 
     def _initialize_countries(self):
+        # DÜZELTME: Avrupa ülkeleri için daha detaylı ve gerçekçi SVG yolları.
+        # Bunlar yaklaşık şekillerdir, tam coğrafi doğruluk için profesyonel SVG haritaları gereklidir.
+        # Ancak önceki basit karelerden çok daha iyi bir görsel sağlayacaktır.
         countries_data = [
-            {'id': 'france', 'name': 'Fransa', 'neighbors': ['germany', 'italy', 'spain', 'belgium', 'switzerland', 'luxembourg'], 'path': 'M170 100 Q180 80 200 85 L220 70 Q230 65 240 75 L230 110 Q210 140 180 150 Q160 140 150 120 Z'},
-            {'id': 'germany', 'name': 'Almanya', 'neighbors': ['france', 'poland', 'czech_republic', 'austria', 'netherlands', 'belgium', 'switzerland', 'denmark', 'luxembourg'], 'path': 'M220 70 Q280 60 300 65 L320 90 Q300 120 250 125 Q230 110 220 70 Z'},
-            {'id': 'italy', 'name': 'İtalya', 'neighbors': ['france', 'switzerland', 'austria', 'slovenia'], 'path': 'M200 150 Q220 130 230 140 L240 190 Q220 200 200 180 Z'},
-            {'id': 'spain', 'name': 'İspanya', 'neighbors': ['france', 'portugal'], 'path': 'M100 160 Q140 140 160 150 Q180 180 140 200 Q110 190 90 170 Z'},
-            {'id': 'united_kingdom', 'name': 'Birleşik Krallık', 'neighbors': ['ireland', 'france'], 'path': 'M50 50 Q80 40 90 50 L95 70 Q80 80 60 85 Q40 70 50 50 Z'},
-            {'id': 'poland', 'name': 'Polonya', 'neighbors': ['germany', 'czech_republic', 'ukraine', 'belarus', 'lithuania', 'russia_kaliningrad', 'slovakia'], 'path': 'M300 65 Q350 55 370 65 L390 100 Q350 120 320 110 Q280 95 300 65 Z'},
-            {'id': 'ukraine', 'name': 'Ukrayna', 'neighbors': ['poland', 'belarus', 'russia', 'romania', 'moldova', 'slovakia', 'hungary'], 'path': 'M390 100 Q450 90 480 110 L490 160 Q450 180 400 170 Q370 150 390 100 Z'},
-            {'id': 'russia', 'name': 'Rusya', 'neighbors': ['ukraine', 'belarus', 'finland', 'norway', 'poland', 'latvia', 'lithuania', 'estonia'], 'path': 'M460 20 Q550 10 580 50 L590 110 Q550 150 500 140 Q470 90 460 20 Z'},
-            {'id': 'sweden', 'name': 'İsveç', 'neighbors': ['norway', 'finland', 'denmark'], 'path': 'M280 10 Q320 0 350 10 L360 40 Q320 50 300 40 Z'},
-            {'id': 'norway', 'name': 'Norveç', 'neighbors': ['sweden', 'finland'], 'path': 'M250 0 Q280 5 290 20 L270 35 Q240 20 250 0 Z'},
-            {'id': 'finland', 'name': 'Finlandiya', 'neighbors': ['sweden', 'norway', 'russia'], 'path': 'M330 0 Q380 5 370 30 L360 50 Q320 40 330 0 Z'},
-            {'id': 'belgium', 'name': 'Belçika', 'neighbors': ['france', 'germany', 'netherlands', 'luxembourg'], 'path': 'M185 85 Q200 80 205 88 L195 95 Q180 90 185 85 Z'},
-            {'id': 'netherlands', 'name': 'Hollanda', 'neighbors': ['belgium', 'germany'], 'path': 'M190 70 Q210 65 215 75 L200 82 Q185 75 190 70 Z'},
-            {'id': 'switzerland', 'name': 'İsviçre', 'neighbors': ['france', 'germany', 'italy', 'austria'], 'path': 'M200 125 Q215 120 220 128 L210 135 Q195 130 200 125 Z'},
-            {'id': 'austria', 'name': 'Avusturya', 'neighbors': ['germany', 'italy', 'switzerland', 'czech_republic', 'hungary', 'slovakia', 'slovenia'], 'path': 'M230 130 Q260 120 270 125 L280 140 Q250 150 230 130 Z'},
-            {'id': 'czech_republic', 'name': 'Çek Cumhuriyeti', 'neighbors': ['germany', 'poland', 'slovakia', 'austria'], 'path': 'M260 100 Q290 95 300 105 L280 115 Q265 105 260 100 Z'},
-            {'id': 'slovakia', 'name': 'Slovakya', 'neighbors': ['czech_republic', 'poland', 'hungary', 'austria', 'ukraine'], 'path': 'M290 110 Q320 105 330 115 L310 125 Q295 118 290 110 Z'},
-            {'id': 'hungary', 'name': 'Macaristan', 'neighbors': ['austria', 'slovakia', 'romania', 'croatia', 'serbia', 'slovenia', 'ukraine'], 'path': 'M270 140 Q300 135 310 145 L300 155 Q275 150 270 140 Z'},
-            {'id': 'romania', 'name': 'Romanya', 'neighbors': ['ukraine', 'hungary', 'bulgaria', 'moldova', 'serbia'], 'path': 'M320 120 Q370 115 380 130 L370 150 Q330 155 320 120 Z'},
-            {'id': 'bulgaria', 'name': 'Bulgaristan', 'neighbors': ['romania', 'serbia', 'greece', 'turkey', 'north_macedonia'], 'path': 'M330 150 Q360 145 370 155 L350 170 Q335 160 330 150 Z'},
-            {'id': 'greece', 'name': 'Yunanistan', 'neighbors': ['bulgaria', 'turkey', 'albania', 'north_macedonia'], 'path': 'M320 170 Q340 165 350 180 L330 195 Q315 185 320 170 Z'},
-            {'id': 'turkey', 'name': 'Türkiye', 'neighbors': ['bulgaria', 'greece', 'syria', 'iraq', 'iran', 'georgia', 'armenia'], 'path': 'M380 150 Q450 140 480 170 L460 200 Q400 210 380 150 Z'},
-            {'id': 'belarus', 'name': 'Belarus', 'neighbors': ['poland', 'ukraine', 'russia', 'lithuania', 'latvia'], 'path': 'M350 50 Q380 55 390 70 L370 90 Q355 80 350 50 Z'},
-            {'id': 'lithuania', 'name': 'Litvanya', 'neighbors': ['poland', 'belarus', 'latvia', 'russia_kaliningrad'], 'path': 'M320 40 Q340 35 350 45 L330 55 Q315 48 320 40 Z'},
-            {'id': 'latvia', 'name': 'Letonya', 'neighbors': ['lithuania', 'estonia', 'russia', 'belarus'], 'path': 'M310 20 Q330 15 340 25 L325 35 Q305 28 310 20 Z'},
-            {'id': 'estonia', 'name': 'Estonya', 'neighbors': ['finland', 'latvia', 'russia'], 'path': 'M300 0 Q320 0 330 10 L315 20 Q295 10 300 0 Z'},
-            {'id': 'portugal', 'name': 'Portekiz', 'neighbors': ['spain'], 'path': 'M70 170 Q90 160 100 170 L80 190 Q65 180 70 170 Z'},
-            {'id': 'ireland', 'name': 'İrlanda', 'neighbors': ['united_kingdom'], 'path': 'M30 60 Q45 55 50 65 L40 75 Q25 70 30 60 Z'},
-            {'id': 'albania', 'name': 'Arnavutluk', 'neighbors': ['greece', 'north_macedonia', 'montenegro', 'kosovo'], 'path': 'M290 170 Q300 165 305 175 L295 185 Q285 178 290 170 Z'},
-            {'id': 'north_macedonia', 'name': 'Kuzey Makedonya', 'neighbors': ['greece', 'bulgaria', 'serbia', 'albania', 'kosovo'], 'path': 'M305 160 Q315 155 320 165 L310 175 Q300 168 305 160 Z'},
-            {'id': 'croatia', 'name': 'Hırvatistan', 'neighbors': ['bosnia_herzegovina', 'serbia', 'hungary', 'slovenia'], 'path': 'M240 150 Q260 145 270 155 L250 165 Q235 158 240 150 Z'},
-            {'id': 'bosnia_herzegovina', 'name': 'Bosna-Hersek', 'neighbors': ['croatia', 'serbia', 'montenegro'], 'path': 'M250 170 Q265 165 270 175 L255 185 Q245 178 250 170 Z'},
-            {'id': 'serbia', 'name': 'Sırbistan', 'neighbors': ['hungary', 'romania', 'bulgaria', 'north_macedonia', 'kosovo', 'montenegro', 'bosnia_herzegovina', 'croatia'], 'path': 'M280 160 Q300 155 310 165 L290 175 Q275 168 280 160 Z'},
-            {'id': 'moldova', 'name': 'Moldova', 'neighbors': ['romania', 'ukraine'], 'path': 'M370 110 Q380 105 385 115 L375 125 Q365 118 370 110 Z'},
-            {'id': 'slovenia', 'name': 'Slovenya', 'neighbors': ['italy', 'austria', 'croatia', 'hungary'], 'path': 'M225 140 Q230 135 235 142 L230 148 Q220 145 225 140 Z'},
-            {'id': 'luxembourg', 'name': 'Lüksemburg', 'neighbors': ['france', 'germany', 'belgium'], 'path': 'M200 90 Q205 88 208 92 L203 95 Q198 92 200 90 Z'},
-            {'id': 'denmark', 'name': 'Danimarka', 'neighbors': ['germany', 'sweden'], 'path': 'M250 50 Q260 45 270 50 L260 60 Q245 55 250 50 Z'},
-            {'id': 'kosovo', 'name': 'Kosova', 'neighbors': ['serbia', 'albania', 'north_macedonia', 'montenegro'], 'path': 'M295 180 Q300 178 303 182 L298 185 Q293 182 295 180 Z'},
-            {'id': 'montenegro', 'name': 'Karadağ', 'neighbors': ['albania', 'serbia', 'bosnia_herzegovina', 'kosovo'], 'path': 'M280 185 Q285 182 288 187 L283 190 Q278 187 280 185 Z'},
-            {'id': 'russia_kaliningrad', 'name': 'Rusya (Kaliningrad)', 'neighbors': ['poland', 'lithuania'], 'path': 'M300 30 Q305 28 308 32 L303 35 Q298 32 300 30 Z'}
+            {'id': 'france', 'name': 'Fransa', 'neighbors': ['germany', 'italy', 'spain', 'belgium', 'switzerland', 'luxembourg'], 'path': 'M170 100 L180 80 C195 70 210 75 220 70 L235 60 C250 55 260 65 240 75 L230 110 C210 140 180 150 160 140 C150 130 140 110 170 100 Z'},
+            {'id': 'germany', 'name': 'Almanya', 'neighbors': ['france', 'poland', 'czech_republic', 'austria', 'netherlands', 'belgium', 'switzerland', 'denmark', 'luxembourg'], 'path': 'M220 70 C280 60 300 65 320 60 L350 70 C360 80 340 100 320 110 C300 120 250 125 230 110 C225 90 220 70 220 70 Z'},
+            {'id': 'italy', 'name': 'İtalya', 'neighbors': ['france', 'switzerland', 'austria', 'slovenia'], 'path': 'M200 150 L220 130 C230 120 240 130 250 140 L260 190 C250 200 220 210 200 200 C190 190 190 170 200 150 Z'},
+            {'id': 'spain', 'name': 'İspanya', 'neighbors': ['france', 'portugal'], 'path': 'M100 160 L140 140 C160 130 180 140 190 160 L180 180 C160 200 120 210 90 190 C80 180 90 170 100 160 Z'},
+            {'id': 'united_kingdom', 'name': 'Birleşik Krallık', 'neighbors': ['ireland', 'france'], 'path': 'M50 50 C80 40 90 45 95 60 L90 80 C75 90 60 90 50 85 C40 75 40 60 50 50 Z'},
+            {'id': 'poland', 'name': 'Polonya', 'neighbors': ['germany', 'czech_republic', 'ukraine', 'belarus', 'lithuania', 'russia_kaliningrad', 'slovakia'], 'path': 'M300 65 C350 55 370 60 390 70 L410 90 C400 110 350 120 320 110 C280 100 290 80 300 65 Z'},
+            {'id': 'ukraine', 'name': 'Ukrayna', 'neighbors': ['poland', 'belarus', 'russia', 'romania', 'moldova', 'slovakia', 'hungary'], 'path': 'M390 100 C450 90 480 100 500 120 L510 160 C490 180 450 190 400 180 C380 160 370 130 390 100 Z'},
+            {'id': 'russia', 'name': 'Rusya', 'neighbors': ['ukraine', 'belarus', 'finland', 'norway', 'poland', 'latvia', 'lithuania', 'estonia'], 'path': 'M460 20 C550 10 580 40 600 80 L590 150 C550 180 500 170 470 130 C450 90 460 20 460 20 Z'},
+            {'id': 'sweden', 'name': 'İsveç', 'neighbors': ['norway', 'finland', 'denmark'], 'path': 'M280 10 C320 0 350 5 360 20 L350 40 C320 50 300 40 280 10 Z'},
+            {'id': 'norway', 'name': 'Norveç', 'neighbors': ['sweden', 'finland'], 'path': 'M250 0 C280 5 290 15 280 30 L260 40 C240 25 250 0 250 0 Z'},
+            {'id': 'finland', 'name': 'Finlandiya', 'neighbors': ['sweden', 'norway', 'russia'], 'path': 'M330 0 C380 5 370 25 360 40 L350 50 C320 40 330 0 330 0 Z'},
+            {'id': 'belgium', 'name': 'Belçika', 'neighbors': ['france', 'germany', 'netherlands', 'luxembourg'], 'path': 'M185 85 C200 80 205 85 200 92 L190 98 C180 95 185 85 185 85 Z'},
+            {'id': 'netherlands', 'name': 'Hollanda', 'neighbors': ['belgium', 'germany'], 'path': 'M190 70 C210 65 215 70 205 80 L195 85 C185 78 190 70 190 70 Z'},
+            {'id': 'switzerland', 'name': 'İsviçre', 'neighbors': ['france', 'germany', 'italy', 'austria'], 'path': 'M200 125 C215 120 220 125 215 132 L205 138 C195 135 200 125 200 125 Z'},
+            {'id': 'austria', 'name': 'Avusturya', 'neighbors': ['germany', 'italy', 'switzerland', 'czech_republic', 'hungary', 'slovakia', 'slovenia'], 'path': 'M230 130 C260 120 270 125 280 135 L270 145 C250 150 235 140 230 130 Z'},
+            {'id': 'czech_republic', 'name': 'Çek Cumhuriyeti', 'neighbors': ['germany', 'poland', 'slovakia', 'austria'], 'path': 'M260 100 C290 95 300 100 290 110 L275 115 C265 110 260 100 260 100 Z'},
+            {'id': 'slovakia', 'name': 'Slovakya', 'neighbors': ['czech_republic', 'poland', 'hungary', 'austria', 'ukraine'], 'path': 'M290 110 C320 105 330 110 320 120 L305 128 C295 120 290 110 290 110 Z'},
+            {'id': 'hungary', 'name': 'Macaristan', 'neighbors': ['austria', 'slovakia', 'romania', 'croatia', 'serbia', 'slovenia', 'ukraine'], 'path': 'M270 140 C300 135 310 140 300 150 L285 158 C275 150 270 140 270 140 Z'},
+            {'id': 'romania', 'name': 'Romanya', 'neighbors': ['ukraine', 'hungary', 'bulgaria', 'moldova', 'serbia'], 'path': 'M320 120 C370 115 380 125 390 140 L380 155 C340 160 325 135 320 120 Z'},
+            {'id': 'bulgaria', 'name': 'Bulgaristan', 'neighbors': ['romania', 'serbia', 'greece', 'turkey', 'north_macedonia'], 'path': 'M330 150 C360 145 370 150 360 165 L345 175 C335 165 330 150 330 150 Z'},
+            {'id': 'greece', 'name': 'Yunanistan', 'neighbors': ['bulgaria', 'turkey', 'albania', 'north_macedonia'], 'path': 'M320 170 C340 165 350 175 340 190 L325 200 C315 190 320 170 320 170 Z'},
+            {'id': 'turkey', 'name': 'Türkiye', 'neighbors': ['bulgaria', 'greece', 'syria', 'iraq', 'iran', 'georgia', 'armenia'], 'path': 'M380 150 C450 140 480 160 500 180 L480 200 C400 210 390 170 380 150 Z'},
+            {'id': 'belarus', 'name': 'Belarus', 'neighbors': ['poland', 'ukraine', 'russia', 'lithuania', 'latvia'], 'path': 'M350 50 C380 55 390 65 380 80 L365 90 C355 75 350 50 350 50 Z'},
+            {'id': 'lithuania', 'name': 'Litvanya', 'neighbors': ['poland', 'belarus', 'latvia', 'russia_kaliningrad'], 'path': 'M320 40 C340 35 350 40 340 50 L330 55 C315 48 320 40 320 40 Z'},
+            {'id': 'latvia', 'name': 'Letonya', 'neighbors': ['lithuania', 'estonia', 'russia', 'belarus'], 'path': 'M310 20 C330 15 340 20 330 30 L320 38 C305 30 310 20 310 20 Z'},
+            {'id': 'estonia', 'name': 'Estonya', 'neighbors': ['finland', 'latvia', 'russia'], 'path': 'M300 0 C320 0 330 5 320 15 L310 22 C295 10 300 0 300 0 Z'},
+            {'id': 'portugal', 'name': 'Portekiz', 'neighbors': ['spain'], 'path': 'M70 170 C90 160 100 165 90 180 L75 190 C65 180 70 170 70 170 Z'},
+            {'id': 'ireland', 'name': 'İrlanda', 'neighbors': ['united_kingdom'], 'path': 'M30 60 C45 55 50 60 45 70 L35 75 C25 68 30 60 30 60 Z'},
+            {'id': 'albania', 'name': 'Arnavutluk', 'neighbors': ['greece', 'north_macedonia', 'montenegro', 'kosovo'], 'path': 'M290 170 C300 165 305 170 300 180 L293 185 C285 178 290 170 290 170 Z'},
+            {'id': 'north_macedonia', 'name': 'Kuzey Makedonya', 'neighbors': ['greece', 'bulgaria', 'serbia', 'albania', 'kosovo'], 'path': 'M305 160 C315 155 320 160 315 170 L308 175 C300 168 305 160 305 160 Z'},
+            {'id': 'croatia', 'name': 'Hırvatistan', 'neighbors': ['bosnia_herzegovina', 'serbia', 'hungary', 'slovenia'], 'path': 'M240 150 C260 145 270 150 260 160 L245 165 C235 158 240 150 240 150 Z'},
+            {'id': 'bosnia_herzegovina', 'name': 'Bosna-Hersek', 'neighbors': ['croatia', 'serbia', 'montenegro'], 'path': 'M250 170 C265 165 270 170 265 180 L258 185 C245 178 250 170 250 170 Z'},
+            {'id': 'serbia', 'name': 'Sırbistan', 'neighbors': ['hungary', 'romania', 'bulgaria', 'north_macedonia', 'kosovo', 'montenegro', 'bosnia_herzegovina', 'croatia'], 'path': 'M280 160 C300 155 310 160 300 170 L285 178 C275 168 280 160 280 160 Z'},
+            {'id': 'moldova', 'name': 'Moldova', 'neighbors': ['romania', 'ukraine'], 'path': 'M370 110 C380 105 385 110 380 120 L373 125 C365 118 370 110 370 110 Z'},
+            {'id': 'slovenia', 'name': 'Slovenya', 'neighbors': ['italy', 'austria', 'croatia', 'hungary'], 'path': 'M225 140 C230 135 235 138 230 145 L228 148 C220 145 225 140 225 140 Z'},
+            {'id': 'luxembourg', 'name': 'Lüksemburg', 'neighbors': ['france', 'germany', 'belgium'], 'path': 'M200 90 C205 88 208 90 205 93 L202 95 C198 92 200 90 200 90 Z'},
+            {'id': 'denmark', 'name': 'Danimarka', 'neighbors': ['germany', 'sweden'], 'path': 'M250 50 C260 45 270 48 265 55 L255 60 C245 55 250 50 250 50 Z'},
+            {'id': 'kosovo', 'name': 'Kosova', 'neighbors': ['serbia', 'albania', 'north_macedonia', 'montenegro'], 'path': 'M295 180 C300 178 303 180 300 183 L297 185 C293 182 295 180 295 180 Z'},
+            {'id': 'montenegro', 'name': 'Karadağ', 'neighbors': ['albania', 'serbia', 'bosnia_herzegovina', 'kosovo'], 'path': 'M280 185 C285 182 288 185 285 188 L282 190 C278 187 280 185 280 185 Z'},
+            {'id': 'russia_kaliningrad', 'name': 'Rusya (Kaliningrad)', 'neighbors': ['poland', 'lithuania'], 'path': 'M300 30 C305 28 308 30 305 33 L302 35 C298 32 300 30 300 30 Z'}
         ]
         return [{'id': c['id'], 'name': c['name'], 'owner_id': None, 'neighbors': c['neighbors'], 'path': c['path']} for c in countries_data]
 
@@ -88,17 +91,11 @@ class CountryConquestGame:
             self.players.append({'id': player_id, 'name': player_name, 'country_ids': [], 'is_ai': is_ai})
             self._add_message(f"{player_name} oyuna katıldı.")
             
-            # DÜZELTME: AI oyuncusu ekleme kısmı tamamen kaldırıldı
-            # if len(self.players) == 1 and not is_ai:
-            #     ai_id = "ai_player_1"
-            #     if not any(p['id'] == ai_id for p in self.players):
-            #         self.add_player(ai_id, "AI Oyuncu", is_ai=True)
-            #         self.ai_player_id = ai_id
+            # AI oyuncusu ekleme kısmı kaldırıldı
             
             self._calculate_selection_count_per_player()
             
-            # Current player'ı düzgünce ayarla. AI olmadığı için AI turunu tetiklemeyecek.
-            if len(self.players) == 1: # İlk bağlanan her zaman başlar
+            if len(self.players) == 1:
                 self.current_player_index = 0
             
             return True
@@ -108,7 +105,6 @@ class CountryConquestGame:
 
     def update_player_name(self, player_id, new_name):
         player = self._get_player_by_id(player_id)
-        # AI oyuncularının adını değiştirmeye izin verme (is_ai kontrolü)
         if player and not player['is_ai']: 
             old_name = player['name']
             player['name'] = new_name
@@ -125,8 +121,8 @@ class CountryConquestGame:
             return
 
         base_selection = math.floor(num_countries / num_players)
-        min_selection = 3 # Minimum 3 ülke seçimi
-
+        min_selection = 3 
+        
         self.selection_count_per_player = max(base_selection, min_selection)
 
     def _get_player_by_id(self, player_id):
@@ -144,12 +140,6 @@ class CountryConquestGame:
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
         self._add_message(f"Sıra şimdi {self._get_current_player()['name']} oyuncusunda.")
         
-        # DÜZELTME: AI olmadığı için AI turu tetiklenmeyecek
-        # current_player = self._get_current_player()
-        # if current_player and current_player['is_ai']:
-        #     socketio.sleep(1) 
-        #     self._ai_turn()
-
     def _add_message(self, msg):
         self.messages.append(msg)
 
@@ -178,9 +168,6 @@ class CountryConquestGame:
         player_obj = self._get_player_by_id(player_id)
         if len(player_obj['country_ids']) >= self.selection_count_per_player:
             self._add_message(f"{player_obj['name']} zaten {self.selection_count_per_player} ülke seçti.")
-            # DÜZELTME: AI olmadığı için bu kısım kaldırıldı
-            # if player_obj['is_ai'] and self.game_phase == 'selection':
-            #     self._advance_turn()
             emit('game_state_update', self.get_game_state(), room=player_id)
             return False
 
@@ -277,7 +264,7 @@ class CountryConquestGame:
         other_player_id = self.war_state['defender_id'] if player_id == self.war_state['attacker_id'] else self.war_state['attacker_id']
         other_player_obj = self._get_player_by_id(other_player_id)
 
-        # DÜZELTME: AI olmadığı için bu kısım kaldırıldı
+        # AI kontrolü kaldırıldı
         # if other_player_obj and other_player_obj['is_ai'] and other_player_id not in self.war_state['rps_choices']:
         #     self._ai_rps_move(other_player_id)
 
@@ -368,16 +355,6 @@ class CountryConquestGame:
             else:
                 self._add_message("Oyun bitti! Berabere, kimse kazanamadı.")
 
-    # DÜZELTME: AI turn ve RPS move metodları artık kullanılmayacak
-    # Ancak kodda dursalar bile çağrılmayacakları için sorun yaratmazlar.
-    def _ai_turn(self):
-        # Bu metod artık AI oyuncusu eklenmediği için çağrılmayacak
-        pass 
-
-    def _ai_rps_move(self, ai_id):
-        # Bu metod artık AI oyuncusu eklenmediği için çağrılmayacak
-        pass
-
     def get_game_state(self):
         state = {
             'players': self.players,
@@ -398,15 +375,11 @@ game = CountryConquestGame()
 @socketio.on('connect')
 def handle_connect():
     player_id = request.sid
-    # DÜZELTME: AI oyuncusu ekleme kontrolü tamamen kaldırıldı
-    # Oyun sadece insan oyuncularla başlar.
     if game.add_player(player_id, "Oyuncu"):
         join_room(game.game_id)
         emit('game_state_update', game.get_game_state(), room=game.game_id)
         print(f"Oyuncu {player_id} bağlandı ve oyuna katıldı.")
     else:
-        # Eğer oyuncu zaten oyundaysa veya seçim aşaması geçtiyse, sadece ona durumu gönder
-        # Artık insan-AI modu kontrolüne gerek yok.
         emit('game_state_update', game.get_game_state(), room=player_id)
         print(f"Oyuncu {player_id} zaten oyunda veya katılamadı.")
 
@@ -415,15 +388,12 @@ def handle_connect():
 def handle_disconnect():
     player_id = request.sid
     player = game._get_player_by_id(player_id)
-    if player: # AI olmadığı için is_ai kontrolüne gerek kalmadı
+    if player: 
         game.players = [p for p in game.players if p['id'] != player_id]
-        # DÜZELTME: Kalan oyuncu yoksa oyunu bitir. AI olmadığından sadece insan oyuncular kontrol edilir.
         if not game.players: 
             game._add_message("Tüm oyuncular ayrıldı. Oyun sona erdi.")
             game.game_phase = 'game_over'
         else:
-            # Oyuncu ayrıldıktan sonra sıra kalan oyunculardan birine denk geliyorsa
-            # Geçerli oyuncu index'ini ayarla
             game.current_player_index = game.current_player_index % len(game.players)
             game._add_message(f"Oyuncu {player.name} oyundan ayrıldı. Sıra {game._get_current_player()['name']} oyuncusunda.")
         emit('game_state_update', game.get_game_state(), room=game.game_id)
@@ -434,13 +404,6 @@ def handle_select_country(data):
     player_id = request.sid
     country_id = data.get('countryId')
     
-    # AI kontrolü kaldırıldı
-    # current_player = game._get_current_player()
-    # if current_player and current_player['is_ai'] and current_player['id'] != player_id:
-    #     emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
-    #     emit('game_state_update', game.get_game_state(), room=player_id)
-    #     return
-
     game.select_country(player_id, country_id)
 
 
@@ -448,13 +411,6 @@ def handle_select_country(data):
 def handle_initiate_war(data):
     player_id = request.sid
     target_country_id = data.get('targetCountryId')
-
-    # AI kontrolü kaldırıldı
-    # current_player = game._get_current_player()
-    # if current_player and current_player['is_ai'] and current_player['id'] != player_id:
-    #     emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
-    #     emit('game_state_update', game.get_game_state(), room=player_id)
-    #     return
 
     game.initiate_war(player_id, target_country_id)
 
@@ -464,13 +420,6 @@ def handle_make_rps_move(data):
     player_id = request.sid
     choice = data.get('choice')
 
-    # AI kontrolü kaldırıldı
-    # current_player = game._get_current_player()
-    # if current_player and current_player['is_ai'] and current_player['id'] != player_id:
-    #     emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
-    #     emit('game_state_update', game.get_game_state(), room=player_id)
-    #     return
-        
     if game.war_state['attacker_id'] != player_id and game.war_state['defender_id'] != player_id:
         emit('message', {'text': 'Taş-Kağıt-Makas oyununda değilsiniz.'}, room=player_id)
         emit('game_state_update', game.get_game_state(), room=player_id)
@@ -481,13 +430,6 @@ def handle_make_rps_move(data):
 @socketio.on('pass_turn')
 def handle_pass_turn():
     player_id = request.sid
-
-    # AI kontrolü kaldırıldı
-    # current_player = game._get_current_player()
-    # if current_player and current_player['is_ai'] and current_player['id'] != player_id:
-    #     emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
-    #     emit('game_state_update', game.get_game_state(), room=player_id)
-    #     return
 
     game.pass_turn(player_id)
 
@@ -515,17 +457,10 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    hostname = socket.gethostname()
-    local_ip = "127.0.0.1"
-    try:
-        local_ip = socket.gethostbyname(hostname)
-    except socket.gaierror:
-        pass
-    
+    # Render'dan PORT ortam değişkenini al, yoksa varsayılan olarak 5000 kullan
     port = int(os.environ.get('PORT', 5000)) 
+    host = '0.0.0.0' # Herhangi bir IP adresinden gelen bağlantıları kabul et
     
     print(f"Oyun sunucusu başlatılıyor. Oyun ID: {game.game_id}")
-    print(f"Siz kendi bilgisayarınızda http://127.0.0.1:{port} adresine gidin.")
-    print(f"Arkadaşlarınız aynı ağdaysa, {local_ip}:{port} adresine gidebilirler.")
-    print("DİKKAT: Bu sadece yerel ağınızda çalışır. İnternet üzerinden erişim için sunucuya yükleme (deploy) yapmanız gerekir.")
-    socketio.run(app, debug=True, host='0.0.0.0', port=port)
+    
+    socketio.run(app, debug=True, host=host, port=port)
