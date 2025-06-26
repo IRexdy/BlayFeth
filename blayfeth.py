@@ -4,45 +4,35 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import uuid
 import json
 import time
-import os # os modülünü import ediyoruz
-import socket # socket modülünü import ediyoruz (hostname ve IP için)
-import random # Yapay zeka için random modülünü import ediyoruz
-import math # Dinamik ülke seçimi için matematiksel işlemler için import ediyoruz
+import os
+import socket
+import random
+import math
 
 app = Flask(__name__)
-# Güvenli bir anahtar kullanın. Üretim ortamında daha karmaşık bir anahtar olmalı.
 app.config['SECRET_KEY'] = 'your_super_secret_key_123'
-# Herhangi bir kaynaktan gelen bağlantılara izin verir. Güvenlik için üretimde kısıtlanmalı.
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent') # async_mode='gevent' doğru kütüphanelerle çalışır
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 
-# --- Oyun Mantığı Sınıfı ---
 class CountryConquestGame:
     def __init__(self):
         self.players = []
-        # Ülkelerin başlangıç durumunu ve komşuluklarını başlatır
         self.countries = self._initialize_countries()
-        # Oyun aşaması: 'selection' (ülke seçimi), 'playing' (oyun devam ediyor), 'game_over' (oyun bitti)
         self.game_phase = 'selection'
         self.current_player_index = 0
-        # self.selection_count_per_player artık dinamik olarak ayarlanacak
         self.war_state = {
             'attacker_id': None,
             'defender_id': None,
             'target_country_id': None,
             'attacker_score': 0,
             'defender_score': 0,
-            'rps_choices': {} # Oyuncuların taş-kağıt-makas seçimleri
+            'rps_choices': {}
         }
-        self.messages = [] # Oyun içi mesajlar listesi
-        self.game_id = str(uuid.uuid4()) # Her oyun için benzersiz ID
-        self.last_update_time = time.time() # Son güncelleme zamanı
-        self.ai_player_id = None # Yapay zeka oyuncusunun ID'si
+        self.messages = []
+        self.game_id = str(uuid.uuid4())
+        self.last_update_time = time.time()
+        self.ai_player_id = None # AI olmayacağı için bu her zaman None kalacak
 
     def _initialize_countries(self):
-        # DÜZELTME: Daha gerçekçi Avrupa ülkeleri SVG yolları ve komşuluk ilişkileri
-        # Not: Bu SVG yolları basitleştirilmiş temsillerdir ve tam coğrafi doğrulukta değildir,
-        # ancak önceki karelerden çok daha iyi bir görsel sağlar.
-        # Daha fazla ülke eklenebilir, ancak kod boyutu için şimdilik bu kadar yeterli.
         countries_data = [
             {'id': 'france', 'name': 'Fransa', 'neighbors': ['germany', 'italy', 'spain', 'belgium', 'switzerland', 'luxembourg'], 'path': 'M170 100 Q180 80 200 85 L220 70 Q230 65 240 75 L230 110 Q210 140 180 150 Q160 140 150 120 Z'},
             {'id': 'germany', 'name': 'Almanya', 'neighbors': ['france', 'poland', 'czech_republic', 'austria', 'netherlands', 'belgium', 'switzerland', 'denmark', 'luxembourg'], 'path': 'M220 70 Q280 60 300 65 L320 90 Q300 120 250 125 Q230 110 220 70 Z'},
@@ -98,29 +88,28 @@ class CountryConquestGame:
             self.players.append({'id': player_id, 'name': player_name, 'country_ids': [], 'is_ai': is_ai})
             self._add_message(f"{player_name} oyuna katıldı.")
             
-            if len(self.players) == 1 and not is_ai:
-                ai_id = "ai_player_1"
-                if not any(p['id'] == ai_id for p in self.players):
-                    self.add_player(ai_id, "AI Oyuncu", is_ai=True)
-                    self.ai_player_id = ai_id
+            # DÜZELTME: AI oyuncusu ekleme kısmı tamamen kaldırıldı
+            # if len(self.players) == 1 and not is_ai:
+            #     ai_id = "ai_player_1"
+            #     if not any(p['id'] == ai_id for p in self.players):
+            #         self.add_player(ai_id, "AI Oyuncu", is_ai=True)
+            #         self.ai_player_id = ai_id
             
-            self._calculate_selection_count_per_player() # Oyuncu eklendiğinde seçim sayısını yeniden hesapla
+            self._calculate_selection_count_per_player()
             
-            # Current player'ı düzgünce ayarla
-            if len(self.players) == 1 and not is_ai:
-                self.current_player_index = 0 # İlk insan oyuncu başlasın
-            elif self._get_current_player()['is_ai']:
-                socketio.start_background_task(target=self._ai_turn)
+            # Current player'ı düzgünce ayarla. AI olmadığı için AI turunu tetiklemeyecek.
+            if len(self.players) == 1: # İlk bağlanan her zaman başlar
+                self.current_player_index = 0
             
             return True
         else:
             self._add_message("Oyuna yalnızca seçim aşamasında katılabilirsiniz.")
             return False
 
-    # DÜZELTME: Oyuncu adı güncelleme metodu eklendi
     def update_player_name(self, player_id, new_name):
         player = self._get_player_by_id(player_id)
-        if player and not player['is_ai']: # AI oyuncusunun adını değiştirmeye izin verme
+        # AI oyuncularının adını değiştirmeye izin verme (is_ai kontrolü)
+        if player and not player['is_ai']: 
             old_name = player['name']
             player['name'] = new_name
             self._add_message(f"{old_name} adını {new_name} olarak değiştirdi.")
@@ -135,12 +124,9 @@ class CountryConquestGame:
             self.selection_count_per_player = 0
             return
 
-        # Her oyuncuya eşit sayıda ülke dağıtmayı hedefle
         base_selection = math.floor(num_countries / num_players)
-        
-        # Minimum bir ülke seçimi belirleyelim (örn. 3)
-        min_selection = 3
-        
+        min_selection = 3 # Minimum 3 ülke seçimi
+
         self.selection_count_per_player = max(base_selection, min_selection)
 
     def _get_player_by_id(self, player_id):
@@ -158,10 +144,11 @@ class CountryConquestGame:
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
         self._add_message(f"Sıra şimdi {self._get_current_player()['name']} oyuncusunda.")
         
-        current_player = self._get_current_player()
-        if current_player and current_player['is_ai']:
-            socketio.sleep(1) # AI'nin düşünme süresi
-            self._ai_turn()
+        # DÜZELTME: AI olmadığı için AI turu tetiklenmeyecek
+        # current_player = self._get_current_player()
+        # if current_player and current_player['is_ai']:
+        #     socketio.sleep(1) 
+        #     self._ai_turn()
 
     def _add_message(self, msg):
         self.messages.append(msg)
@@ -191,8 +178,9 @@ class CountryConquestGame:
         player_obj = self._get_player_by_id(player_id)
         if len(player_obj['country_ids']) >= self.selection_count_per_player:
             self._add_message(f"{player_obj['name']} zaten {self.selection_count_per_player} ülke seçti.")
-            if player_obj['is_ai'] and self.game_phase == 'selection':
-                self._advance_turn()
+            # DÜZELTME: AI olmadığı için bu kısım kaldırıldı
+            # if player_obj['is_ai'] and self.game_phase == 'selection':
+            #     self._advance_turn()
             emit('game_state_update', self.get_game_state(), room=player_id)
             return False
 
@@ -289,8 +277,9 @@ class CountryConquestGame:
         other_player_id = self.war_state['defender_id'] if player_id == self.war_state['attacker_id'] else self.war_state['attacker_id']
         other_player_obj = self._get_player_by_id(other_player_id)
 
-        if other_player_obj and other_player_obj['is_ai'] and other_player_id not in self.war_state['rps_choices']:
-            self._ai_rps_move(other_player_id)
+        # DÜZELTME: AI olmadığı için bu kısım kaldırıldı
+        # if other_player_obj and other_player_obj['is_ai'] and other_player_id not in self.war_state['rps_choices']:
+        #     self._ai_rps_move(other_player_id)
 
         if self.war_state['attacker_id'] in self.war_state['rps_choices'] and \
            self.war_state['defender_id'] in self.war_state['rps_choices']:
@@ -360,7 +349,7 @@ class CountryConquestGame:
             emit('game_state_update', self.get_game_state(), room=player_id)
             return False
 
-        if self.war_state['attacker_id']: # Eğer bir savaş devam ediyorsa pas geçilemez
+        if self.war_state['attacker_id']:
             self._add_message("Savaş devam ederken pas geçemezsiniz. Lütfen Taş-Kağıt-Makas hamlenizi yapın.")
             emit('game_state_update', self.get_game_state(), room=player_id)
             return False
@@ -379,59 +368,15 @@ class CountryConquestGame:
             else:
                 self._add_message("Oyun bitti! Berabere, kimse kazanamadı.")
 
+    # DÜZELTME: AI turn ve RPS move metodları artık kullanılmayacak
+    # Ancak kodda dursalar bile çağrılmayacakları için sorun yaratmazlar.
     def _ai_turn(self):
-        ai_player = self._get_current_player()
-        if not ai_player or not ai_player['is_ai']:
-            return
-
-        socketio.sleep(1) # AI'nin düşünme süresi için küçük bir gecikme (ana turn aksiyonları için)
-
-        if self.war_state['attacker_id'] == ai_player['id'] and ai_player['id'] not in self.war_state['rps_choices']:
-            self._ai_rps_move(ai_player['id'])
-            return
-        elif self.war_state['defender_id'] == ai_player['id'] and ai_player['id'] not in self.war_state['rps_choices']:
-            self._ai_rps_move(ai_player['id'])
-            return
-
-        if self.game_phase == 'selection':
-            unowned_countries = [c for c in self.countries if c['owner_id'] is None]
-            if unowned_countries:
-                chosen_country = random.choice(unowned_countries)
-                self.select_country(ai_player['id'], chosen_country['id'])
-            else:
-                self._add_message("AI: Seçilecek ülke kalmadı. Oyun başlıyor.")
-                self.game_phase = 'playing'
-                self._add_message("Ülke seçimi tamamlandı. Oyun başlıyor!")
-                self._advance_turn()
-                emit('game_state_update', self.get_game_state(), room=self.game_id)
-            return
-
-        elif self.game_phase == 'playing':
-            if not self.war_state['attacker_id']:
-                ai_owned_countries = [c for c in self.countries if c['owner_id'] == ai_player['id']]
-                
-                potential_targets = []
-                for my_country in ai_owned_countries:
-                    for neighbor_id in my_country['neighbors']:
-                        neighbor_country = self._get_country_by_id(neighbor_id)
-                        if neighbor_country and neighbor_country['owner_id'] and neighbor_country['owner_id'] != ai_player['id']:
-                            potential_targets.append(neighbor_country['id'])
-                
-                if potential_targets:
-                    target_country_id = random.choice(list(set(potential_targets)))
-                    self.initiate_war(ai_player['id'], target_country_id)
-                    if self.war_state['attacker_id'] == ai_player['id'] and ai_player['id'] not in self.war_state['rps_choices']:
-                         socketio.sleep(1)
-                         self._ai_rps_move(ai_player['id'])
-                else:
-                    self.pass_turn(ai_player['id'])
-            return
+        # Bu metod artık AI oyuncusu eklenmediği için çağrılmayacak
+        pass 
 
     def _ai_rps_move(self, ai_id):
-        choices = ['rock', 'paper', 'scissors']
-        ai_choice = random.choice(choices)
-        self.make_rps_move(ai_id, ai_choice)
-
+        # Bu metod artık AI oyuncusu eklenmediği için çağrılmayacak
+        pass
 
     def get_game_state(self):
         state = {
@@ -453,40 +398,34 @@ game = CountryConquestGame()
 @socketio.on('connect')
 def handle_connect():
     player_id = request.sid
-    if len(game.players) == 0:
-        if game.add_player(player_id, "Oyuncu"):
-            join_room(game.game_id)
-            emit('game_state_update', game.get_game_state(), room=game.game_id)
-            print(f"İnsan oyuncu {player_id} bağlandı ve oyuna başladı.")
-    elif not any(p['id'] == player_id for p in game.players):
-        if game.game_phase != 'selection' and game.ai_player_id and len(game.players) >= 2:
-             emit('message', {'text': 'Bu oyun şu anda insan-AI modunda ve başlatıldı. Yeni bir oyun başlatmak için sunucuyu yeniden başlatın.'}, room=player_id)
-             print(f"Yeni oyuncu {player_id} katılamadı (insan-AI modu).")
-        else:
-             game.add_player(player_id, "Oyuncu")
-             join_room(game.game_id)
-             emit('game_state_update', game.get_game_state(), room=game.game_id)
-             print(f"Yeni insan oyuncu {player_id} katıldı.")
+    # DÜZELTME: AI oyuncusu ekleme kontrolü tamamen kaldırıldı
+    # Oyun sadece insan oyuncularla başlar.
+    if game.add_player(player_id, "Oyuncu"):
+        join_room(game.game_id)
+        emit('game_state_update', game.get_game_state(), room=game.game_id)
+        print(f"Oyuncu {player_id} bağlandı ve oyuna katıldı.")
     else:
+        # Eğer oyuncu zaten oyundaysa veya seçim aşaması geçtiyse, sadece ona durumu gönder
+        # Artık insan-AI modu kontrolüne gerek yok.
         emit('game_state_update', game.get_game_state(), room=player_id)
-        print(f"Oyuncu {player_id} zaten oyunda.")
+        print(f"Oyuncu {player_id} zaten oyunda veya katılamadı.")
 
 
 @socketio.on('disconnect')
 def handle_disconnect():
     player_id = request.sid
     player = game._get_player_by_id(player_id)
-    if player and not player['is_ai']:
+    if player: # AI olmadığı için is_ai kontrolüne gerek kalmadı
         game.players = [p for p in game.players if p['id'] != player_id]
-        if not any(p['is_ai'] == False for p in game.players):
-            game._add_message("Tüm insan oyuncular ayrıldı. Oyun sona erdi.")
+        # DÜZELTME: Kalan oyuncu yoksa oyunu bitir. AI olmadığından sadece insan oyuncular kontrol edilir.
+        if not game.players: 
+            game._add_message("Tüm oyuncular ayrıldı. Oyun sona erdi.")
             game.game_phase = 'game_over'
         else:
-            if game.players:
-                game.current_player_index %= len(game.players)
-                current_player = game._get_current_player()
-                if current_player and current_player['is_ai'] and game.game_phase != 'game_over':
-                    socketio.start_background_task(target=game._ai_turn)
+            # Oyuncu ayrıldıktan sonra sıra kalan oyunculardan birine denk geliyorsa
+            # Geçerli oyuncu index'ini ayarla
+            game.current_player_index = game.current_player_index % len(game.players)
+            game._add_message(f"Oyuncu {player.name} oyundan ayrıldı. Sıra {game._get_current_player()['name']} oyuncusunda.")
         emit('game_state_update', game.get_game_state(), room=game.game_id)
     print(f"Oyuncu {player_id} bağlantısı kesildi.")
 
@@ -495,11 +434,12 @@ def handle_select_country(data):
     player_id = request.sid
     country_id = data.get('countryId')
     
-    current_player = game._get_current_player()
-    if current_player and current_player['is_ai'] and current_player['id'] != player_id:
-        emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
-        emit('game_state_update', game.get_game_state(), room=player_id)
-        return
+    # AI kontrolü kaldırıldı
+    # current_player = game._get_current_player()
+    # if current_player and current_player['is_ai'] and current_player['id'] != player_id:
+    #     emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
+    #     emit('game_state_update', game.get_game_state(), room=player_id)
+    #     return
 
     game.select_country(player_id, country_id)
 
@@ -509,11 +449,12 @@ def handle_initiate_war(data):
     player_id = request.sid
     target_country_id = data.get('targetCountryId')
 
-    current_player = game._get_current_player()
-    if current_player and current_player['is_ai'] and current_player['id'] != player_id:
-        emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
-        emit('game_state_update', game.get_game_state(), room=player_id)
-        return
+    # AI kontrolü kaldırıldı
+    # current_player = game._get_current_player()
+    # if current_player and current_player['is_ai'] and current_player['id'] != player_id:
+    #     emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
+    #     emit('game_state_update', game.get_game_state(), room=player_id)
+    #     return
 
     game.initiate_war(player_id, target_country_id)
 
@@ -523,11 +464,12 @@ def handle_make_rps_move(data):
     player_id = request.sid
     choice = data.get('choice')
 
-    current_player = game._get_current_player()
-    if current_player and current_player['is_ai'] and current_player['id'] != player_id:
-        emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
-        emit('game_state_update', game.get_game_state(), room=player_id)
-        return
+    # AI kontrolü kaldırıldı
+    # current_player = game._get_current_player()
+    # if current_player and current_player['is_ai'] and current_player['id'] != player_id:
+    #     emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
+    #     emit('game_state_update', game.get_game_state(), room=player_id)
+    #     return
         
     if game.war_state['attacker_id'] != player_id and game.war_state['defender_id'] != player_id:
         emit('message', {'text': 'Taş-Kağıt-Makas oyununda değilsiniz.'}, room=player_id)
@@ -540,27 +482,27 @@ def handle_make_rps_move(data):
 def handle_pass_turn():
     player_id = request.sid
 
-    current_player = game._get_current_player()
-    if current_player and current_player['is_ai'] and current_player['id'] != player_id:
-        emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
-        emit('game_state_update', game.get_game_state(), room=player_id)
-        return
+    # AI kontrolü kaldırıldı
+    # current_player = game._get_current_player()
+    # if current_player and current_player['is_ai'] and current_player['id'] != player_id:
+    #     emit('message', {'text': 'Şu an AI\'nin sırası. Lütfen bekleyin.'}, room=player_id)
+    #     emit('game_state_update', game.get_game_state(), room=player_id)
+    #     return
 
     game.pass_turn(player_id)
 
-# DÜZELTME: Oyuncu adı değiştirme event handler'ı
 @socketio.on('change_player_name')
 def handle_change_player_name(data):
     player_id = request.sid
     new_name = data.get('newName')
     
-    if not new_name or len(new_name) > 20 or not new_name.strip(): # İsim kısıtlamaları
+    if not new_name or len(new_name) > 20 or not new_name.strip():
         emit('message', {'text': 'Geçerli bir isim girin (en fazla 20 karakter).'}, room=player_id)
         emit('game_state_update', game.get_game_state(), room=player_id)
         return
         
     if game.update_player_name(player_id, new_name.strip()):
-        emit('game_state_update', game.get_game_state(), room=game.game_id) # Tüm odaya güncelleme gönder
+        emit('game_state_update', game.get_game_state(), room=game.game_id)
     else:
         emit('message', {'text': 'İsim değiştirilemedi.'}, room=player_id)
         emit('game_state_update', game.get_game_state(), room=player_id)
