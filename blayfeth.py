@@ -271,16 +271,17 @@ class CountryConquestGame:
         winner = None
         if attacker_choice == defender_choice:
             winner = 'draw'
+            self._add_message(f"Taş-Kağıt-Makas: {attacker_choice} vs {defender_choice}. Bu tur berabere!")
         elif (attacker_choice == 'rock' and defender_choice == 'scissors') or \
              (attacker_choice == 'paper' and defender_choice == 'rock') or \
              (attacker_choice == 'scissors' and defender_choice == 'paper'):
             winner = 'attacker'
             self.war_state['attacker_score'] += 1
+            self._add_message(f"Taş-Kağıt-Makas: {attacker_choice} vs {defender_choice}. Bu turu saldıran {self._get_player_by_id(self.war_state['attacker_id'])['name']} kazandı!")
         else:
             winner = 'defender'
             self.war_state['defender_score'] += 1
-
-        self._add_message(f"Taş-Kağıt-Makas: {attacker_choice} vs {defender_choice}. Tur Kazananı: {winner.capitalize()}!")
+            self._add_message(f"Taş-Kağıt-Makas: {attacker_choice} vs {defender_choice}. Bu turu savunan {self._get_player_by_id(self.war_state['defender_id'])['name']} kazandı!")
 
         self.war_state['rps_choices'] = {}
 
@@ -301,9 +302,9 @@ class CountryConquestGame:
             attacker_player['country_ids'].append(target_country_id)
             if target_country_id in defender_player['country_ids']:
                 defender_player['country_ids'].remove(target_country_id)
-            self._add_message(f"{attacker_player['name']} {target_country['name']} ülkesini fethetti!")
+            self._add_message(f"SAVAŞ SONUCU: {attacker_player['name']} {target_country['name']} ülkesini fethetti!")
         else:
-            self._add_message(f"{defender_player['name']} ülkesini başarıyla savundu!")
+            self._add_message(f"SAVAŞ SONUCU: {defender_player['name']} {target_country['name']} ülkesini başarıyla savundu!")
 
         self.war_state = {
             'attacker_id': None, 'defender_id': None, 'target_country_id': None,
@@ -340,9 +341,9 @@ class CountryConquestGame:
         if len(remaining_players) <= 1 and self.game_phase != 'selection':
             self.game_phase = 'game_over'
             if remaining_players:
-                self._add_message(f"Oyun bitti! Kazanan: {remaining_players[0]['name']}!")
+                self._add_message(f"OYUN BİTTİ! Kazanan: {remaining_players[0]['name']}!")
             else:
-                self._add_message("Oyun bitti! Berabere, kimse kazanamadı.")
+                self._add_message("OYUN BİTTİ! Berabere, kimse kazanamadı.")
 
     def get_game_state(self):
         state = {
@@ -381,7 +382,7 @@ def handle_disconnect():
             game.game_phase = 'game_over'
         else:
             game.current_player_index = game.current_player_index % len(game.players)
-            game._add_message(f"Oyuncu {player.name} oyundan ayrıldı. Sıra {game._get_current_player()['name']} oyuncusunda.")
+            game._add_message(f"Oyuncu {player['name']} oyundan ayrıldı. Sıra {game._get_current_player()['name']} oyuncusunda.")
         emit('game_state_update', game.get_game_state(), room=game.game_id)
     print(f"Oyuncu {player_id} bağlantısı kesildi.")
 
