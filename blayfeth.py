@@ -1,11 +1,9 @@
-# blayfeth.py
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import uuid
 import json
 import time
 import os
-import socket
 import random
 import math
 
@@ -33,11 +31,8 @@ class CountryConquestGame:
         self.ai_player_id = None
 
     def _initialize_countries(self):
-        # DÜZELTME: Avrupa ülkeleri için daha detaylı ve gerçekçi SVG yolları.
-        # Bunlar yaklaşık şekillerdir, tam coğrafi doğruluk için profesyonel SVG haritaları gereklidir.
-        # Ancak önceki basit karelerden çok daha iyi bir görsel sağlayacaktır.
         countries_data = [
-            {'id': 'france', 'name': 'Fransa', 'neighbors': ['germany', 'italy', 'spain', 'belgium', 'switzerland', 'luxembourg'], 'path': 'M170 100 L180 80 C195 70 210 75 220 70 L235 60 C250 55 260 65 240 75 L230 110 C210 140 180 150 160 140 C150 130 140 110 170 100 Z'},
+            {'id': 'france', 'name': 'Fransa', 'neighbors': ['germany', 'italy', 'spain', 'belgium', 'switzerland', 'luxembourg'], 'path': 'M170 100 C175 85 190 70 205 75 L220 70 C230 65 245 70 240 85 L230 110 C210 140 180 150 160 140 C150 130 140 110 170 100 Z'},
             {'id': 'germany', 'name': 'Almanya', 'neighbors': ['france', 'poland', 'czech_republic', 'austria', 'netherlands', 'belgium', 'switzerland', 'denmark', 'luxembourg'], 'path': 'M220 70 C280 60 300 65 320 60 L350 70 C360 80 340 100 320 110 C300 120 250 125 230 110 C225 90 220 70 220 70 Z'},
             {'id': 'italy', 'name': 'İtalya', 'neighbors': ['france', 'switzerland', 'austria', 'slovenia'], 'path': 'M200 150 L220 130 C230 120 240 130 250 140 L260 190 C250 200 220 210 200 200 C190 190 190 170 200 150 Z'},
             {'id': 'spain', 'name': 'İspanya', 'neighbors': ['france', 'portugal'], 'path': 'M100 160 L140 140 C160 130 180 140 190 160 L180 180 C160 200 120 210 90 190 C80 180 90 170 100 160 Z'},
@@ -90,8 +85,6 @@ class CountryConquestGame:
         if self.game_phase == 'selection' or not self.players:
             self.players.append({'id': player_id, 'name': player_name, 'country_ids': [], 'is_ai': is_ai})
             self._add_message(f"{player_name} oyuna katıldı.")
-            
-            # AI oyuncusu ekleme kısmı kaldırıldı
             
             self._calculate_selection_count_per_player()
             
@@ -264,10 +257,6 @@ class CountryConquestGame:
         other_player_id = self.war_state['defender_id'] if player_id == self.war_state['attacker_id'] else self.war_state['attacker_id']
         other_player_obj = self._get_player_by_id(other_player_id)
 
-        # AI kontrolü kaldırıldı
-        # if other_player_obj and other_player_obj['is_ai'] and other_player_id not in self.war_state['rps_choices']:
-        #     self._ai_rps_move(other_player_id)
-
         if self.war_state['attacker_id'] in self.war_state['rps_choices'] and \
            self.war_state['defender_id'] in self.war_state['rps_choices']:
             self._resolve_rps_round()
@@ -293,7 +282,7 @@ class CountryConquestGame:
 
         self._add_message(f"Taş-Kağıt-Makas: {attacker_choice} vs {defender_choice}. Tur Kazananı: {winner.capitalize()}!")
 
-        self.war_state['rps_choices'] = {} # Bir sonraki tur için seçimleri sıfırla
+        self.war_state['rps_choices'] = {}
 
         if self.war_state['attacker_score'] >= 3 or self.war_state['defender_score'] >= 3:
             self._resolve_war_outcome()
@@ -368,10 +357,8 @@ class CountryConquestGame:
         self.messages = []
         return state
 
-# --- Global Oyun Durumu ---
 game = CountryConquestGame()
 
-# --- SocketIO Olay İşleyicileri ---
 @socketio.on('connect')
 def handle_connect():
     player_id = request.sid
@@ -382,7 +369,6 @@ def handle_connect():
     else:
         emit('game_state_update', game.get_game_state(), room=player_id)
         print(f"Oyuncu {player_id} zaten oyunda veya katılamadı.")
-
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -406,14 +392,12 @@ def handle_select_country(data):
     
     game.select_country(player_id, country_id)
 
-
 @socketio.on('initiate_war')
 def handle_initiate_war(data):
     player_id = request.sid
     target_country_id = data.get('targetCountryId')
 
     game.initiate_war(player_id, target_country_id)
-
 
 @socketio.on('make_rps_move')
 def handle_make_rps_move(data):
@@ -449,7 +433,6 @@ def handle_change_player_name(data):
         emit('message', {'text': 'İsim değiştirilemedi.'}, room=player_id)
         emit('game_state_update', game.get_game_state(), room=player_id)
 
-# --- Flask Yönlendirmesi ---
 @app.route('/')
 def index():
     template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
@@ -457,9 +440,8 @@ def index():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    # Render'dan PORT ortam değişkenini al, yoksa varsayılan olarak 5000 kullan
     port = int(os.environ.get('PORT', 5000)) 
-    host = '0.0.0.0' # Herhangi bir IP adresinden gelen bağlantıları kabul et
+    host = '0.0.0.0'
     
     print(f"Oyun sunucusu başlatılıyor. Oyun ID: {game.game_id}")
     
